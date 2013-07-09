@@ -10,11 +10,11 @@ public class QueryTimer {
     private long start = 0;
     private long end = 0;
 
-    private void start() {
+    public void start() {
         start = System.nanoTime();
     }
 
-    private void finish() {
+    public void finish() {
         end = System.nanoTime();
     }
 

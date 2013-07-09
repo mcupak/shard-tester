@@ -21,7 +21,8 @@ public class Sharder {
     private static Properties config = new Properties();
     private static Connection conn = null;
     private static int shardCount = 0;
-    private static ShardManager shardManager;
+    private static ShardManager shardManager = null;
+    private static ConnectionManager connManager = null;
 
     private static void loadProperties(Properties prop, String file) {
         try {
@@ -43,20 +44,10 @@ public class Sharder {
      * @param password
      * @return
      */
-    public static Connection connect(String host, Integer port, String database, String user, String password) {
-        Connection c = null;
-        try {
-            Class.forName("com.mysql.jdbc.Driver");
-            c = DriverManager.getConnection("jdbc:mysql://" + host + ":" + port + "/" + database, user, password);
-        } catch (SQLException e) {
-            System.err.println("Could not connect to the database.");
-            e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            System.err.println("Could not connect to the database.");
-            e.printStackTrace();
-        }
-
-        return c;
+    public static void connect(String host, Integer port, String database, String user, String password, int connNo) {
+        connManager = ConnectionManager.getInstance();
+        connManager.init(host, port, database, user, password, connNo);
+        conn = connManager.getConnection();
     }
 
     /**
@@ -64,9 +55,9 @@ public class Sharder {
      * 
      * @param c
      */
-    public static void disconnect(Connection c) {
+    public static void disconnect() {
         try {
-            c.close();
+            conn.close();
         } catch (SQLException e) {
             System.err.println("Could not close database connection.");
         }
@@ -76,7 +67,7 @@ public class Sharder {
         // run simple select to test the connection and table
         PreparedStatement testSelect = null;
         try {
-            testSelect = c.prepareStatement("SELECT * FROM " + table + " LIMIT 2");
+            testSelect = c.prepareStatement("SELECT COUNT(*) FROM " + table);
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -85,7 +76,7 @@ public class Sharder {
         try {
             results = testSelect.executeQuery();
             while (results.next()) {
-                System.out.println(results.getInt(3));
+                System.out.println(results.getInt(1));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -99,7 +90,7 @@ public class Sharder {
      */
     public static void main(String[] args) {
         shardManager = ShardManager.getInstance();
-        
+
         // load properties from file
         loadProperties(config, DEFAULT_CONFIG_FILE);
 
@@ -113,7 +104,8 @@ public class Sharder {
         String database = config.getProperty("dbname");
         String user = config.getProperty("dbuser");
         String password = config.getProperty("dbpassword");
-        conn = connect(host, port, database, user, password);
+        Integer threads = Integer.valueOf(config.getProperty("threadno"));
+        connect(host, port, database, user, password, threads + 1);
 
         // create shards
         String table = config.getProperty("dbtable");
@@ -124,14 +116,14 @@ public class Sharder {
             // ShardManager.cleanUp(conn, table, shardCount);
             shardManager.createShards(conn, table, shardCount);
             shardManager.fillShardsViaFile(conn, table, shardCount, file);
+
+            // testTable(conn, shardManager.getShardName(table, 0));
         } else {
             // use the original table
         }
-        
-        
 
         // disconnect
         shardManager.cleanUp(conn, table, shardCount);
-        disconnect(conn);
+        disconnect();
     }
 }

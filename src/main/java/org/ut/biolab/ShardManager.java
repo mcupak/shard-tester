@@ -33,7 +33,7 @@ public class ShardManager {
      * @param index
      * @return
      */
-    private String getShardName(String table, int index) {
+    public String getShardName(String table, int index) {
         return table + "_" + "s" + index;
     }
 

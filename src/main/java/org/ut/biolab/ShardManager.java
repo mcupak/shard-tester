@@ -13,6 +13,18 @@ import java.sql.SQLException;
  * 
  */
 public class ShardManager {
+    private static ShardManager instance = null;
+
+    protected ShardManager() {
+        // exists only to defeat instantiation.
+    }
+
+    public static ShardManager getInstance() {
+        if (instance == null) {
+            instance = new ShardManager();
+        }
+        return instance;
+    }
 
     /**
      * Generate a table name for a given shard.
@@ -21,7 +33,7 @@ public class ShardManager {
      * @param index
      * @return
      */
-    private static String getShardName(String table, int index) {
+    private String getShardName(String table, int index) {
         return table + "_" + "s" + index;
     }
 
@@ -32,7 +44,7 @@ public class ShardManager {
      * @param table
      * @param shards
      */
-    public static void createShards(Connection c, String table, int shards) {
+    public void createShards(Connection c, String table, int shards) {
         PreparedStatement p;
         for (int i = 0; i < shards; i++) {
             // create table for a shard
@@ -54,7 +66,7 @@ public class ShardManager {
      * @param table
      * @return
      */
-    public static int countRecords(Connection c, String table) {
+    public int countRecords(Connection c, String table) {
         int count = 1;
         PreparedStatement s = null;
         try {
@@ -86,7 +98,7 @@ public class ShardManager {
      * @param table
      * @param shards
      */
-    public static void fillShards(Connection c, String table, int shards) {
+    public void fillShards(Connection c, String table, int shards) {
         // do everything in a transaction to ensure consistency
         PreparedStatement p = null;
         try {
@@ -135,7 +147,7 @@ public class ShardManager {
      * @param shards
      * @param buffer
      */
-    public static void fillShardsViaFile(Connection c, String table, int shards, String file) {
+    public void fillShardsViaFile(Connection c, String table, int shards, String file) {
         PreparedStatement p = null;
         File f = new File(file);
         try {
@@ -174,7 +186,7 @@ public class ShardManager {
      * @param table
      * @param shards
      */
-    public static void cleanUp(Connection c, String table, int shards) {
+    public void cleanUp(Connection c, String table, int shards) {
         if (shards > 1) {
             PreparedStatement p = null;
             for (int i = 0; i < shards; i++) {

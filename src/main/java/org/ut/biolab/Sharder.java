@@ -21,6 +21,7 @@ public class Sharder {
     private static Properties config = new Properties();
     private static Connection conn = null;
     private static int shardCount = 0;
+    private static ShardManager shardManager;
 
     private static void loadProperties(Properties prop, String file) {
         try {
@@ -97,6 +98,8 @@ public class Sharder {
      * @param args
      */
     public static void main(String[] args) {
+        shardManager = ShardManager.getInstance();
+        
         // load properties from file
         loadProperties(config, DEFAULT_CONFIG_FILE);
 
@@ -119,8 +122,8 @@ public class Sharder {
         if (shardCount > 1) {
             // create separate tables as shards
             // ShardManager.cleanUp(conn, table, shardCount);
-            ShardManager.createShards(conn, table, shardCount);
-            ShardManager.fillShardsViaFile(conn, table, shardCount, file);
+            shardManager.createShards(conn, table, shardCount);
+            shardManager.fillShardsViaFile(conn, table, shardCount, file);
         } else {
             // use the original table
         }
@@ -128,7 +131,7 @@ public class Sharder {
         
 
         // disconnect
-        ShardManager.cleanUp(conn, table, shardCount);
+        shardManager.cleanUp(conn, table, shardCount);
         disconnect(conn);
     }
 }

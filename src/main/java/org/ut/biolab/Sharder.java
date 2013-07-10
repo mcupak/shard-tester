@@ -25,14 +25,8 @@ public class Sharder {
     private static ConnectionManager cManager = null;
     private static Connection conn = null;
 
-    private static void loadProperties(Properties prop, String file) {
-        try {
-            prop.load(new FileInputStream(file));
-        } catch (FileNotFoundException e) {
-            System.err.println("File " + file + " not found.");
-        } catch (IOException e) {
-            System.err.println("File " + file + " could not be read.");
-        }
+    private static void loadProperties(Properties prop, String file) throws FileNotFoundException, IOException {
+        prop.load(new FileInputStream(file));
     }
 
     /**
@@ -74,54 +68,63 @@ public class Sharder {
         sManager = ShardManager.getInstance();
 
         // load properties from file
-        loadProperties(config, DEFAULT_CONFIG_FILE);
+        try {
+            loadProperties(config, DEFAULT_CONFIG_FILE);
 
-        // parse command line args
-        // TODO: add the posibility to override properties from file via command
-        // line args (via gnu getopt)
+            // parse command line args
+            // TODO: add the posibility to override properties from file via
+            // command
+            // line args (via gnu getopt)
 
-        // connect to DB
-        String host = config.getProperty("dbhost");
-        Integer port = Integer.valueOf(config.getProperty("dbport"));
-        String database = config.getProperty("dbname");
-        String user = config.getProperty("dbuser");
-        String password = config.getProperty("dbpassword");
-        shardCount = Integer.valueOf(config.getProperty("shardno"));
+            // connect to DB
+            String host = config.getProperty("dbhost");
+            Integer port = Integer.valueOf(config.getProperty("dbport"));
+            String database = config.getProperty("dbname");
+            String user = config.getProperty("dbuser");
+            String password = config.getProperty("dbpassword");
+            shardCount = Integer.valueOf(config.getProperty("shardno"));
 
-        // print config
-        System.out.println("Host: " + host + ":" + port);
-        System.out.println("DB: " + database);
+            // print config
+            System.out.println("Host: " + host + ":" + port);
+            System.out.println("DB: " + database);
 
-        // connect
-        connect(host, port, database, user, password, shardCount + 1);
+            // connect
+            connect(host, port, database, user, password, shardCount + 1);
 
-        // create shards
-        String table = config.getProperty("dbtable");
-        String file = config.getProperty("buffer");
-        if (shardCount > 0) {
-            // create separate tables as shards
-            sManager.createShards(conn, table, shardCount);
-            sManager.fillShardsViaFile(conn, table, shardCount, file);
+            // create shards
+            String table = config.getProperty("dbtable");
+            String file = config.getProperty("buffer");
+            if (shardCount > 0) {
+                // create separate tables as shards
+                sManager.createShards(conn, table, shardCount);
+                sManager.fillShardsViaFile(conn, table, shardCount, file);
 
-            // run queries
-            qeManager = new QueryExecutorManager(shardCount);
-            List<Integer> results = qeManager.execute(queryTemplate, table);
+                // run queries
+                qeManager = new QueryExecutorManager(shardCount);
+                List<Integer> results = qeManager.execute(queryTemplate, table);
 
-            // aggregate results and measure the time it takes to merge the data
-            // trivial merging in this case for the purpose of comparison
-            QueryTimer qt = new QueryTimer();
-            qt.start();
-            int totalCount = 0;
-            for (Integer r : results) {
-                totalCount += r;
+                // aggregate results and measure the time it takes to merge the
+                // data
+                // trivial merging in this case for the purpose of comparison
+                QueryTimer qt = new QueryTimer();
+                qt.start();
+                int totalCount = 0;
+                for (Integer r : results) {
+                    totalCount += r;
+                }
+                qt.stop();
+                System.out.println("Result, merging time (ms): " + totalCount + ", " + qt.getDurationInMs());
             }
-            qt.stop();
-            System.out.println("Result, merging time (ms): " + totalCount + ", " + qt.getDurationInMs());
+
+            // disconnect
+            sManager.cleanUp(conn, table, shardCount);
+            disconnect();
+        } catch (FileNotFoundException e) {
+            System.err.println("File " + DEFAULT_CONFIG_FILE + " not found.");
+        } catch (IOException e) {
+            System.err.println("File " + DEFAULT_CONFIG_FILE + " could not be read.");
         }
 
-        // disconnect
-        sManager.cleanUp(conn, table, shardCount);
-        disconnect();
         System.out.println("FINISHED.");
     }
 }

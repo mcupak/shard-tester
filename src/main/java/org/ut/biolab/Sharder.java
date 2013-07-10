@@ -4,10 +4,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -18,11 +16,14 @@ import java.util.Properties;
 public class Sharder {
 
     public static final String DEFAULT_CONFIG_FILE = "config.properties";
+    public static final String queryTemplate = "SELECT * FROM %s";
+
     private static Properties config = new Properties();
-    private static Connection conn = null;
     private static int shardCount = 0;
-    private static ShardManager shardManager = null;
-    private static ConnectionManager connManager = null;
+    private static ShardManager sManager = null;
+    private static QueryExecutorManager qeManager = null;
+    private static ConnectionManager cManager = null;
+    private static Connection conn = null;
 
     private static void loadProperties(Properties prop, String file) {
         try {
@@ -45,9 +46,9 @@ public class Sharder {
      * @return
      */
     public static void connect(String host, Integer port, String database, String user, String password, int connNo) {
-        connManager = ConnectionManager.getInstance();
-        connManager.init(host, port, database, user, password, connNo);
-        conn = connManager.getConnection();
+        cManager = ConnectionManager.getInstance();
+        cManager.init(host, port, database, user, password, connNo);
+        conn = cManager.getConnection();
     }
 
     /**
@@ -63,33 +64,14 @@ public class Sharder {
         }
     }
 
-    private static void testTable(Connection c, String table) {
-        // run simple select to test the connection and table
-        PreparedStatement testSelect = null;
-        try {
-            testSelect = c.prepareStatement("SELECT COUNT(*) FROM " + table);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        ResultSet results;
-        try {
-            results = testSelect.executeQuery();
-            while (results.next()) {
-                System.out.println(results.getInt(1));
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     /**
      * Controls the execution.
      * 
      * @param args
      */
     public static void main(String[] args) {
-        shardManager = ShardManager.getInstance();
+        System.out.println("STARTING");
+        sManager = ShardManager.getInstance();
 
         // load properties from file
         loadProperties(config, DEFAULT_CONFIG_FILE);
@@ -104,26 +86,42 @@ public class Sharder {
         String database = config.getProperty("dbname");
         String user = config.getProperty("dbuser");
         String password = config.getProperty("dbpassword");
-        Integer threads = Integer.valueOf(config.getProperty("threadno"));
-        connect(host, port, database, user, password, threads + 1);
+        shardCount = Integer.valueOf(config.getProperty("shardno"));
+
+        // print config
+        System.out.println("Host: " + host + ":" + port);
+        System.out.println("DB: " + database);
+
+        // connect
+        connect(host, port, database, user, password, shardCount + 1);
 
         // create shards
         String table = config.getProperty("dbtable");
-        shardCount = Integer.valueOf(config.getProperty("shardno"));
-        String file = "/tmp/buffer.tmp";
-        if (shardCount > 1) {
+        String file = config.getProperty("buffer");
+        if (shardCount > 0) {
             // create separate tables as shards
-            // ShardManager.cleanUp(conn, table, shardCount);
-            shardManager.createShards(conn, table, shardCount);
-            shardManager.fillShardsViaFile(conn, table, shardCount, file);
+            sManager.createShards(conn, table, shardCount);
+            sManager.fillShardsViaFile(conn, table, shardCount, file);
 
-            // testTable(conn, shardManager.getShardName(table, 0));
-        } else {
-            // use the original table
+            // run queries
+            qeManager = new QueryExecutorManager(shardCount);
+            List<Integer> results = qeManager.execute(queryTemplate, table);
+
+            // aggregate results and measure the time it takes to merge the data
+            // trivial merging in this case for the purpose of comparison
+            QueryTimer qt = new QueryTimer();
+            qt.start();
+            int totalCount = 0;
+            for (Integer r : results) {
+                totalCount += r;
+            }
+            qt.stop();
+            System.out.println("Result, merging time (ms): " + totalCount + ", " + qt.getDurationInMs());
         }
 
         // disconnect
-        shardManager.cleanUp(conn, table, shardCount);
+        sManager.cleanUp(conn, table, shardCount);
         disconnect();
+        System.out.println("FINISHED.");
     }
 }

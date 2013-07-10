@@ -14,7 +14,7 @@ public class QueryTimer {
         start = System.nanoTime();
     }
 
-    public void finish() {
+    public void stop() {
         end = System.nanoTime();
     }
 
@@ -28,6 +28,14 @@ public class QueryTimer {
 
     public long getDuration() {
         return end - start;
+    }
+
+    public Double getDurationInMs() {
+        return (end - start) * 0.000001;
+    }
+
+    public Double getDurationInS() {
+        return (end - start) * 0.000000001;
     }
 
 }

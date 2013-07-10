@@ -33,8 +33,8 @@ public class ShardManager {
      * @param index
      * @return
      */
-    public String getShardName(String table, int index) {
-        return table + "_" + "s" + index;
+    public static String getShardName(String table, int index) {
+        return table + "_shard_" + index;
     }
 
     /**
@@ -45,15 +45,23 @@ public class ShardManager {
      * @param shards
      */
     public void createShards(Connection c, String table, int shards) {
-        PreparedStatement p;
+        PreparedStatement p = null;
         for (int i = 0; i < shards; i++) {
             // create table for a shard
             try {
                 p = c.prepareStatement("CREATE TABLE IF NOT EXISTS " + getShardName(table, i) + " LIKE " + table);
-                System.out.println("Creating shard " + i);
+                System.out.println("Creating shard: " + i);
                 p.execute();
             } catch (SQLException e) {
                 e.printStackTrace();
+            } finally {
+                if (p != null) {
+                    try {
+                        p.close();
+                    } catch (SQLException e) {
+                        System.err.println("Failed to close the statement.");
+                    }
+                }
             }
         }
 
@@ -69,21 +77,28 @@ public class ShardManager {
     public int countRecords(Connection c, String table) {
         int count = 1;
         PreparedStatement s = null;
+        ResultSet co = null;
         try {
             s = c.prepareStatement("SELECT count(*) FROM " + table);
-            ResultSet co = s.executeQuery();
+            co = s.executeQuery();
             co.next();
             count = co.getInt(1);
         } catch (SQLException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
         } finally {
+            if (co != null) {
+                try {
+                    co.close();
+                } catch (SQLException e) {
+                    System.err.println("Resultset could not be closed.");
+                }
+            }
             if (s != null) {
                 try {
                     s.close();
                 } catch (SQLException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    System.err.println("Failed to close the statement.");
                 }
             }
         }
@@ -103,13 +118,17 @@ public class ShardManager {
         PreparedStatement p = null;
         try {
             c.setAutoCommit(false);
-            int piece = countRecords(c, table);
+            int totalRecords = countRecords(c, table);
+            int piece = (totalRecords + 1) / shards;
+            System.out.println("Total number of shards: " + shards);
+            System.out.println("Total number of records: " + totalRecords);
+            System.out.println("Shard size: " + piece);
             c.commit();
             for (int i = 0; i < shards; i++) {
                 // distribute the original table's data to shards round-robin
                 // (different strategy is also possible)
                 p = c.prepareStatement("INSERT INTO " + getShardName(table, i) + " SELECT * FROM " + table + " LIMIT " + piece + " OFFSET " + piece * i);
-                System.out.println("Creating shard " + i);
+                System.out.println("Creating shard: " + i);
                 p.execute();
             }
             c.commit();
@@ -121,8 +140,7 @@ public class ShardManager {
                 try {
                     p.close();
                 } catch (SQLException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    System.err.println("Failed to close the statement.");
                 }
             }
         }
@@ -151,11 +169,16 @@ public class ShardManager {
         PreparedStatement p = null;
         File f = new File(file);
         try {
-            int piece = (countRecords(c, table) + 1) / shards;
+            int totalRecords = countRecords(c, table);
+            int piece = (totalRecords + 1) / shards;
+            System.out.println("Total number of shards: " + shards);
+            System.out.println("Total number of records: " + totalRecords);
+            System.out.println("Shard size: " + piece);
+
             for (int i = 0; i < shards; i++) {
                 // distribute the original table's data to shards round-robin
                 // (different strategy is also possible)
-                System.out.println("Filling in shard " + i);
+                System.out.println("Filling in shard: " + i);
                 p = c.prepareStatement("SELECT * FROM " + table + " LIMIT " + piece + " OFFSET " + piece * i + " INTO OUTFILE '" + file + "' fields terminated by '\t'");
                 p.execute();
                 p = c.prepareStatement("LOAD DATA INFILE '" + file + "' INTO TABLE " + getShardName(table, i) + " fields terminated by '\t'");
@@ -172,8 +195,7 @@ public class ShardManager {
                 try {
                     p.close();
                 } catch (SQLException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    System.err.println("Failed to close the statement.");
                 }
             }
         }
@@ -193,7 +215,7 @@ public class ShardManager {
                 // drop table
                 try {
                     p = c.prepareStatement("DROP TABLE IF EXISTS " + getShardName(table, i));
-                    System.out.println("Deleting shard " + i);
+                    System.out.println("Deleting shard: " + i);
                     p.execute();
                 } catch (SQLException e) {
                     e.printStackTrace();
@@ -203,8 +225,7 @@ public class ShardManager {
                 try {
                     p.close();
                 } catch (SQLException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                    System.err.println("Failed to close the statement.");
                 }
             }
         }

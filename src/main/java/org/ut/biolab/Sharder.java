@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
@@ -16,7 +17,11 @@ import java.util.Properties;
 public class Sharder {
 
     public static final String DEFAULT_CONFIG_FILE = "config.properties";
-    public static final String queryTemplate = "SELECT * FROM %s";
+    public static final String SELECT_STAR_TEMPLATE = "SELECT variant_id FROM %s";
+    public static final String COUNT_STAR_TEMPLATE = "SELECT COUNT(*) FROM %s";
+    public static final String SINGLE_MATCH_WHERE_TEMPLATE = "SELECT * FROM %s WHERE variant_id=200000";
+    public static final String INTERVAL_TEMPLATE = "SELECT * FROM %s WHERE variant_id BETWEEN 500000 AND 600000";
+    public static final String PATTERN_TEMPLATE = "SELECT * FROM %s WHERE ref LIKE '%%GGG%%'";
 
     private static Properties config = new Properties();
     private static int shardCount = 0;
@@ -73,8 +78,7 @@ public class Sharder {
 
             // parse command line args
             // TODO: add the posibility to override properties from file via
-            // command
-            // line args (via gnu getopt)
+            // command line args (via gnu getopt)
 
             // connect to DB
             String host = config.getProperty("dbhost");
@@ -99,21 +103,32 @@ public class Sharder {
                 sManager.createShards(conn, table, shardCount);
                 sManager.fillShardsViaFile(conn, table, shardCount, file);
 
-                // run queries
+                // schedule queries
                 qeManager = new QueryExecutorManager(shardCount);
-                List<Integer> results = qeManager.execute(queryTemplate, table);
+                List<String> queryBuffer = new ArrayList<String>();
+                queryBuffer.add(SELECT_STAR_TEMPLATE);
+                queryBuffer.add(COUNT_STAR_TEMPLATE);
+                queryBuffer.add(SINGLE_MATCH_WHERE_TEMPLATE);
+                queryBuffer.add(INTERVAL_TEMPLATE);
+                queryBuffer.add(PATTERN_TEMPLATE);
 
-                // aggregate results and measure the time it takes to merge the
-                // data
-                // trivial merging in this case for the purpose of comparison
-                QueryTimer qt = new QueryTimer();
-                qt.start();
-                int totalCount = 0;
-                for (Integer r : results) {
-                    totalCount += r;
+                // run queries
+                for (String q : queryBuffer) {
+                    System.out.println("Query: " + q);
+                    List<Integer> results = qeManager.execute(q, table);
+
+                    // aggregate results and measure the time it takes to merge
+                    // trivial merging in this case for the purpose of
+                    // comparison
+                    QueryTimer qt = new QueryTimer();
+                    qt.start();
+                    int totalCount = 0;
+                    for (Integer r : results) {
+                        totalCount += r;
+                    }
+                    qt.stop();
+                    System.out.println("Result, merging time (ms): " + totalCount + ", " + qt.getDurationInMs());
                 }
-                qt.stop();
-                System.out.println("Result, merging time (ms): " + totalCount + ", " + qt.getDurationInMs());
             }
 
             // disconnect

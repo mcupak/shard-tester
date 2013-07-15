@@ -34,6 +34,8 @@ public class QueryExecutorManager {
         Set<Future<Integer>> tempResults = new HashSet<Future<Integer>>();
 
         // spawn threads
+        QueryTimer totalTimer = new QueryTimer();
+        totalTimer.start();
         for (int i = 0; i < queryCount; i++) {
             String q = instantiateQueryFromTemplate(query, ShardManager.getShardName(table, i));
             Callable<Integer> worker = new QueryExecutor(i, q);
@@ -54,6 +56,7 @@ public class QueryExecutorManager {
                 e.printStackTrace();
             }
         }
+        totalTimer.stop();
 
         // finish
         executor.shutdown();
@@ -61,6 +64,7 @@ public class QueryExecutorManager {
             // wait until everything is done
         }
 
+        System.out.println("Total query execution duration (s): " + totalTimer.getDurationInS());
         return finalResults;
     }
 }

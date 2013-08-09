@@ -67,7 +67,7 @@ public class DatabaseManager {
      * @return file name
      */
     public static String getFileForTable(String table) {
-        return table + ".out";
+        return "/tmp/" + table + ".out";
     }
 
     /**

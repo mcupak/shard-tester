@@ -52,7 +52,6 @@ public class Sharder {
     public static void connect(String host, Integer port, String database, String user, String password, int connNo) {
         cManager = ConnectionManager.getInstance();
         cManager.init(host, port, database, user, password, connNo);
-        dManager = DatabaseManager.getInstance();
         conn = cManager.getConnection();
     }
 
@@ -149,6 +148,7 @@ public class Sharder {
     public static void main(String[] args) {
         System.out.println("STARTING");
         sManager = ShardManager.getInstance();
+        dManager = DatabaseManager.getInstance();
 
         // load properties from file
         try {

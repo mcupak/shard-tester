@@ -32,7 +32,7 @@ public class Sharder {
     private static DatabaseManager dManager = null;
 
     private enum Action {
-        EXPORTDB, SHARDTABLE, SHARDANDTESTTABLE, EXPORTTOCSVSHARD;
+        EXPORTDB, SHARDTABLE, SHARDANDTESTTABLE, EXPORTTOCSVSHARD
     }
 
     private static void loadProperties(Properties prop, String file) throws FileNotFoundException, IOException {

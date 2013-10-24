@@ -179,9 +179,9 @@ public class ShardManager {
                 // distribute the original table's data to shards round-robin
                 // (different strategy is also possible)
                 System.out.println("Filling in shard: " + i);
-                p = c.prepareStatement("SELECT * FROM " + table + " LIMIT " + piece + " OFFSET " + piece * i + " INTO OUTFILE '" + file + "' fields terminated by '\t'");
+                p = c.prepareStatement("SELECT * FROM " + table + " LIMIT " + piece + " OFFSET " + piece * i + " INTO OUTFILE '" + file + "' fields terminated by '\\t'");
                 p.execute();
-                p = c.prepareStatement("LOAD DATA INFILE '" + file + "' INTO TABLE " + getShardName(table, i) + " fields terminated by '\t'");
+                p = c.prepareStatement("LOAD DATA INFILE '" + file + "' INTO TABLE " + getShardName(table, i) + " fields terminated by '\\t'");
                 p.execute();
 
                 // remove temp file
@@ -220,7 +220,7 @@ public class ShardManager {
             for (int i = 0; i < shards; i++) {
                 System.out.println("Exporting table '" + table + "' into file '" + DatabaseManager.getFileForTable(table) + "_shard" + i + "'.");
                 p = c.prepareStatement("SELECT * FROM " + table + " order by position limit " + piece + " offset " + (i * piece) + " INTO OUTFILE '"
-                        + DatabaseManager.getFileForTable(table) + "_shard" + i + "' fields terminated by ',' ENCLOSED BY '" + "\"" + "' lines terminated by '\n'");
+                        + DatabaseManager.getFileForTable(table) + "_shard" + i + "' fields terminated by ',' ENCLOSED BY '" + "\"" + "' lines terminated by '\\n'");
                 p.execute();
             }
 

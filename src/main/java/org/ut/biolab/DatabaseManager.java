@@ -105,13 +105,13 @@ public class DatabaseManager {
 
         PreparedStatement p;
         try {
-            p = c.prepareStatement("SELECT * FROM " + table + " INTO OUTFILE '" + getFileForTable(table) + "' fields terminated by '\t'");
+            p = c.prepareStatement("SELECT * FROM " + table + " INTO OUTFILE '" + getFileForTable(table) + "' fields terminated by '\\t'");
             p.execute();
+
+            System.out.println("Export of table '" + table + "' finished.");
         } catch (SQLException e) {
             System.err.println("Failed to export table '" + table + "'.");
         }
-
-        System.out.println("Export of table '" + table + "' finished.");
     }
 
     /**

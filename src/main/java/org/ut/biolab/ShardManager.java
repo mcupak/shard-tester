@@ -202,6 +202,35 @@ public class ShardManager {
     }
 
     /**
+     * Export by shards to CSV.
+     * 
+     * @param connection
+     *            connection
+     * @param table
+     *            table to save
+     * @param shards
+     *            number of shards
+     */
+    public void exportByShardsToCSV(Connection c, String table, int shards) {
+        int totalRecords = countRecords(c, table);
+        int piece = (totalRecords + 1) / shards;
+
+        PreparedStatement p;
+        try {
+            for (int i = 0; i < shards; i++) {
+                System.out.println("Exporting table '" + table + "' into file '" + DatabaseManager.getFileForTable(table) + "_shard" + i + "'.");
+                p = c.prepareStatement("SELECT * FROM " + table + " order by position limit " + piece + " offset " + (i * piece) + " INTO OUTFILE '"
+                        + DatabaseManager.getFileForTable(table) + "_shard" + i + "' fields terminated by ',' ENCLOSED BY '" + "\"" + "' lines terminated by '\n'");
+                p.execute();
+            }
+
+            System.out.println("Export of table '" + table + "' finished.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
      * Gets rid of the tables.
      * 
      * @param c

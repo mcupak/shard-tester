@@ -32,7 +32,7 @@ public class Sharder {
     private static DatabaseManager dManager = null;
 
     private enum Action {
-        EXPORTDB, SHARDTABLE, SHARDANDTESTTABLE;
+        EXPORTDB, SHARDTABLE, SHARDANDTESTTABLE, EXPORTTOCSVSHARD;
     }
 
     private static void loadProperties(Properties prop, String file) throws FileNotFoundException, IOException {
@@ -92,6 +92,19 @@ public class Sharder {
             // create separate tables as shards
             sManager.createShards(conn, table, shardCount);
             sManager.fillShardsViaFile(conn, table, shardCount, file);
+        }
+    }
+
+    /**
+     * Exports table into CSV chunks by shards.
+     * 
+     * @param table
+     *            table to shard
+     */
+    public static void exportShardsToCSV(String table) {
+        if (shardCount > 0) {
+            // create separate tables as shards
+            sManager.exportByShardsToCSV(conn, table, shardCount);
         }
     }
 
@@ -186,6 +199,9 @@ public class Sharder {
                 break;
             case SHARDANDTESTTABLE:
                 shardAndTestTable(table, file);
+                break;
+            case EXPORTTOCSVSHARD:
+                exportShardsToCSV(table);
                 break;
             default:
                 System.out.println("No valid action specified");
